@@ -1,0 +1,18 @@
+fastapi[standard]==0.114.1
+uvicorn==0.30.6
+pydantic==2.9.1
+pydantic_settings==2.5.2
+httpx==0.27.2
+pyneo4j-ogm==0.6.0 
+
+# # Conexão com o banco de dados
+# SQLAlchemy[asyncio]==2.0.34
+# asyncpg==0.29.0
+# alembic==1.13.2
+
+
+# Segurança
+pwdlib[argon2]==0.2.1
+
+# Tokens JWT
+PyJWT==2.9.0

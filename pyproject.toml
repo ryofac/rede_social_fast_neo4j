@@ -1,0 +1,41 @@
+[tool.ruff]
+select = [
+  # pycodestyle
+  "E",
+  # Pyflakes
+  "F",
+  # pyupgrade
+  "UP",
+  # flake8-simplify
+  "SIM",
+  # isort
+  "I",
+]
+
+line-length = 199
+indent-width = 4
+
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/{tests,docs,tools}/*" = ["E402"]
+
+[tool.taskipy.tasks]
+lint = 'ruff check . && ruff check . --diff'
+format = 'ruff check . --fix && ruff format .'
+run = 'fast i dev finn/main.py'
+pre_test = 'task lint'
+test = 'docker compose -f local.yml run --rm web pytest -s -x --cov=finn -vv'
+post_test = 'coverage html'
+
+up = "docker compose -f local.yml up"
+down = "docker compose -f local.yml down"
+build = "docker compose -f local.yml build"
+
+makemigration = "docker compose -f local.yml run --rm web alembic revision --autogenerate -m"
+migrate = "docker compose -f local.yml run --rm web alembic upgrade head"
+
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = '-p no:warnings'

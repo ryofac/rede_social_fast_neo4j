@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     NEO_PASSWORD: str
     NEO_PORT: int = 7687
+    NEO_URL: str | None = None
 
     @property
     def database_url(self):
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
 
     @property
     def neo4j_url(self):
-        return f"bolt://neo4j:{self.NEO_PORT}"
+        return self.NEO_URL if self.NEO_URL else f"bolt://neo4j:{self.NEO_PORT}"
 
 
 settings = Settings()

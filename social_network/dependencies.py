@@ -13,7 +13,7 @@ async def init_neo4j():
 
     # Replace `<connection-uri-to-database>`, `<username>` and `<password>` with the
     # actual values.
-    await client.connect(uri="bolt://neo4j:7687", auth=("neo4j", settings.NEO_PASSWORD))
+    await client.connect(uri=settings.neo4j_url, auth=("neo4j", settings.NEO_PASSWORD))
 
     # To use our models for running queries later on, we have to register
     # them with the client.

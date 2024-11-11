@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import Field
@@ -8,13 +7,11 @@ from pyneo4j_ogm import NodeModel, RelationshipModel, RelationshipProperty, Rela
 from social_network import security
 from social_network.posts.models import Owns, Post
 
-if TYPE_CHECKING:
-    pass
-    # from social_network.posts.models import Owns, Post
-
 
 class User(NodeModel):
     uid: WithOptions(UUID, unique=True) = Field(init=False, default_factory=uuid4)
+    avatar_link: str
+    bio: str
     username: WithOptions(str, unique=True)
     email: WithOptions(str, unique=True)
     full_name: WithOptions(str, text_index=True)
@@ -37,6 +34,22 @@ class User(NodeModel):
         allow_multiple=True,
     )
 
+    likes: RelationshipProperty["Post", "Liked"] = RelationshipProperty(
+        target_model="Post",
+        relationship_model="Liked",
+        direction=RelationshipPropertyDirection.OUTGOING,
+        cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
+        allow_multiple=False,
+    )
+
+    dilikes: RelationshipProperty["Post", "Disliked"] = RelationshipProperty(
+        target_model="Post",
+        relationship_model="Disliked",
+        direction=RelationshipPropertyDirection.OUTGOING,
+        cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
+        allow_multiple=False,
+    )
+
     posts: RelationshipProperty["Post", "Owns"] = RelationshipProperty(
         target_model="Post",
         relationship_model="Owns",
@@ -47,4 +60,12 @@ class User(NodeModel):
 
 
 class Following(RelationshipModel):
+    pass
+
+
+class Liked(RelationshipModel):
+    pass
+
+
+class Disliked(RelationshipModel):
     pass

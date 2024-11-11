@@ -4,8 +4,8 @@ from fastapi.responses import RedirectResponse
 
 from social_network.auth.router import auth_router
 from social_network.dependencies import init_neo4j
-from social_network.users.router import user_router
 from social_network.posts.router import post_router
+from social_network.users.router import user_router
 
 app = FastAPI(
     title="Rubyan",

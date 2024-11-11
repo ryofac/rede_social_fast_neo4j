@@ -147,7 +147,7 @@ async def get_user_by_id(user_id: str):
     },
 )
 async def update_user(user_id: str, user_update: UserUpdate):
-    exist_user: User = await User.find_one({"uid": user_id})
+    exist_user: User = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
 
     if not exist_user:
         raise HTTPException(

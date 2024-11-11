@@ -1,12 +1,31 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Self
+from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field
 
 from social_network.core.schemas import OrmModel
 from social_network.posts.models import Post
 from social_network.users.models import User
+
+
+class PostDetailsWithoutOwner(OrmModel):
+    """Modelo usado para obter um post específico"""
+
+    uid: UUID
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+    linked_to: list["Self"] | None
+
+    @classmethod
+    def from_post(cls, post: Post):
+        linked_to = post.linked_to.nodes
+        return cls(
+            **post.model_dump(exclude=["linked_to"]),
+            linked_to=linked_to,
+        )
 
 
 class UserBase(OrmModel):
@@ -26,7 +45,9 @@ class UserPublic(OrmModel):
     username: str
     full_name: str
     email: str
-    posts: list[Post]
+    bio: str | None = Field(default=None)
+    avatar_link: str | None = Field(default=None)
+    posts: list[PostDetailsWithoutOwner]
     following: list["UserPublic"]
     created_at: datetime
     updated_at: datetime
@@ -34,11 +55,12 @@ class UserPublic(OrmModel):
     @classmethod
     def from_user(cls, user: User):
         user_following = [UserPublic.from_user(user) for user in user.following.nodes]
+        posts = [PostDetailsWithoutOwner.from_post(post) for post in user.posts.nodes]
         return cls(
             **user.model_dump(
                 exclude=["posts", "following"],
             ),
-            posts=user.posts.nodes,
+            posts=posts,
             following=user_following,
         )
 
@@ -54,6 +76,8 @@ class UserCreate(OrmModel):
     email: str
     full_name: str
     password: str
+    bio: str
+    avatar_link: str
 
 
 class UserUpdate(OrmModel):

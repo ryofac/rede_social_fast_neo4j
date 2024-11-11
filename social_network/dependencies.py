@@ -2,7 +2,7 @@ from pyneo4j_ogm import Pyneo4jClient
 
 from social_network.posts.models import Comments, LinkedTo, Owns, Post
 from social_network.settings import settings
-from social_network.users.models import Following, User
+from social_network.users.models import Disliked, Following, Liked, User
 
 # from social_network.users.repository import UserRepository
 
@@ -20,7 +20,7 @@ async def init_neo4j():
     # **Note**: You only have to register the models that you want to use
     # for queries and you can even skip this step if you want to use the
     # `Pyneo4jClient` instance for running raw queries.
-    await client.register_models([User, Post, Owns, Comments, Following, LinkedTo])
+    await client.register_models([User, Post, Owns, Comments, Following, LinkedTo, Liked, Disliked])
 
 
 # def get_user_repository():

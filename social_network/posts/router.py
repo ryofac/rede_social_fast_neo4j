@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
-from social_network import security
 from social_network.auth.router import get_current_user
 from social_network.posts.models import Post
 from social_network.posts.schemas import PostBase, PostCreate, PostDetails, PostList, PostUpdate
@@ -31,7 +30,7 @@ async def get_posts(current_user: User = Depends(get_current_user)):
     results = await Post.find_many(auto_fetch_nodes=True)
 
     for ind, post in enumerate(results):
-        results[ind] = PostDetails.from_post(post)
+        results[ind] = await PostDetails.from_post(post, current_user)
 
     all_posts = PostList.model_validate({"posts": results})
     return all_posts
@@ -58,7 +57,7 @@ async def create_post(post: PostCreate, current_user: User = Depends(get_current
     await db_post.refresh()
     await current_user.posts.connect(db_post)
 
-    return db_post
+    return await PostDetails.from_post(db_post, current_user)
 
 
 @post_router.get(
@@ -68,7 +67,7 @@ async def create_post(post: PostCreate, current_user: User = Depends(get_current
         status.HTTP_404_NOT_FOUND: {"description": "Post not found"},
     },
 )
-async def get_post_by_id(post_id: str):
+async def get_post_by_id(post_id: str, current_user: User = Depends(get_current_user)):
     post_db = await Post.find_one({"uid": post_id}, auto_fetch_nodes=True)
 
     if not post_db:
@@ -77,7 +76,7 @@ async def get_post_by_id(post_id: str):
             detail="Post not found!",
         )
 
-    return PostDetails.from_post(post_db)
+    return await PostDetails.from_post(post_db, current_user)
 
 
 @post_router.put(
@@ -111,7 +110,7 @@ async def update_post(post_id: str, post_update: PostUpdate, current_user: User 
     await exist_post.update()
     await exist_post.refresh()
 
-    return PostDetails.from_post(exist_post)
+    return await PostDetails.from_post(exist_post, current_user)
 
 
 @post_router.delete(
@@ -146,7 +145,7 @@ async def comment_post(post_id: str, post: PostCreate, current_user: User = Depe
     to_be_commented_post = await Post.find_one({"uid": post_id}, auto_fetch_nodes=True)
 
     if not to_be_commented_post:
-        raise HTTPException("Post not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
 
     db_post: Post = Post(**post.model_dump())
 
@@ -161,4 +160,60 @@ async def comment_post(post_id: str, post: PostCreate, current_user: User = Depe
     await db_post.linked_to.connect(to_be_commented_post)
     await db_post.refresh()
 
-    return PostDetails.from_post(to_be_commented_post)
+    return await PostDetails.from_post(to_be_commented_post, current_user)
+
+
+@post_router.post(
+    "/{post_id}/dislike",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Post already disliked!"},
+    },
+)
+async def dislike_post(post_id: str, current_user: User = Depends(get_current_user)):
+    post_db = await Post.find_one({"uid": post_id}, auto_fetch_nodes=True)
+
+    if not post_db:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
+
+    already_disliked = len(await current_user.dilikes.find_connected_nodes({"uid": post_id})) > 0
+    if already_disliked:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Post already disliked!")
+
+    liked = len(await current_user.likes.find_connected_nodes({"uid": post_id}))
+
+    if liked:
+        await current_user.likes.disconnect(post_db)
+
+    await current_user.dilikes.connect(post_db)
+    await current_user.refresh()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@post_router.post(
+    "/{post_id}/like",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Post already disliked!"},
+    },
+)
+async def like_post(post_id: str, current_user: User = Depends(get_current_user)):
+    post_db = await Post.find_one({"uid": post_id}, auto_fetch_nodes=True)
+
+    if not post_db:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
+
+    already_liked = len(await current_user.likes.find_connected_nodes({"uid": post_id})) > 0
+    if already_liked:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Post already liked!")
+
+    disliked = len(await current_user.dilikes.find_connected_nodes({"uid": post_id}))
+
+    if disliked:
+        await current_user.dilikes.disconnect(post_db)
+
+    await current_user.likes.connect(post_db)
+    await current_user.refresh()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

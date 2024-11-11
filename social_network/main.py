@@ -23,8 +23,6 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(post_router)
-# app.include_router(debit_router)
-# app.include_router(category_router)
 
 
 @app.get("/", include_in_schema=False)

@@ -96,16 +96,15 @@ async def update_post(post_id: str, post_update: PostUpdate, current_user: User 
             detail="Post not found!",
         )
 
-    elif exist_post not in current_user.posts.find_connected_nodes():  # Todo: isso funciona?
+    elif exist_post not in await current_user.posts.find_connected_nodes():  # Todo: isso funciona?
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User doesn't owns that post!",
         )
 
     # Atualização de campos do post
-    exist_post.title = post_update.title
     exist_post.content = post_update.content
-    exist_post.updated_at = datetime.now(datetime.timezone.utc)
+    exist_post.updated_at = datetime.now()
 
     await exist_post.update()
     await exist_post.refresh()

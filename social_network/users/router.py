@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,7 +7,6 @@ from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 # from sqlalchemy import select
 # from sqlalchemy.ext.asyncio import AsyncSession
 from social_network import security
-from social_network.auth import auth_bearer
 from social_network.auth.router import get_current_user
 
 # from social_network.database import get_session

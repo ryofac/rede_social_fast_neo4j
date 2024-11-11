@@ -1,11 +1,14 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 
 # from sqlalchemy import select
 # from sqlalchemy.ext.asyncio import AsyncSession
 from social_network import security
+from social_network.auth import auth_bearer
 from social_network.auth.router import get_current_user
 
 # from social_network.database import get_session
@@ -21,13 +24,15 @@ user_router = APIRouter(prefix="/users", tags=["users"])
     status_code=status.HTTP_201_CREATED,
     response_model=UserPublic,
     responses={
-        status.HTTP_400_BAD_REQUEST: {"description": "User with the same user exists."},
+        status.HTTP_400_BAD_REQUEST: {"description": "User with the same data already exists."},
     },
 )
 async def create_user(user: UserCreate):
     db_user: User = User(**user.model_dump(exclude="password"))
 
     existent_user = await User.find_one({"username": user.username})
+    if not existent_user:
+        existent_user = await User.find_one({"email": user.email})
 
     if existent_user:
         if existent_user.username == user.username:
@@ -45,7 +50,32 @@ async def create_user(user: UserCreate):
     await db_user.create()
     await db_user.refresh()
 
-    return db_user
+    return UserPublic.from_user(db_user)
+
+
+@user_router.post(
+    "/follow/{user_to_follow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "User to follow does not exist."},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "User is currently following the user",
+        },
+    },
+)
+async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_current_user)):
+    user_to_follow = await User.find_one({"uid": user_to_follow_id})
+
+    if not user_to_follow:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User to follow does not exist.")
+
+    is_already_following = len(await current_user.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_follow_id})) > 0
+
+    if is_already_following:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are already following this user")
+
+    await current_user.following.connect(user_to_follow)
+    return current_user
 
 
 @user_router.get(
@@ -73,10 +103,12 @@ async def get_users(
     #     )
     # )
 
-    result = await User.find_many()
+    results = await User.find_many(auto_fetch_nodes=True)
 
-    all_users = UserList.model_validate({"users": result})
+    for ind, user in enumerate(results):
+        results[ind] = UserPublic.from_user(user)
 
+    all_users = UserList.model_validate({"users": results})
     return all_users
 
 
@@ -85,7 +117,7 @@ async def get_users(
     response_model=UserPublic,
 )
 async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return UserPublic.from_user(current_user)
 
 
 @user_router.get(
@@ -96,7 +128,7 @@ async def me(current_user: User = Depends(get_current_user)):
     },
 )
 async def get_user_by_id(user_id: str):
-    user_db = await User.find_one({"id": "user_id"})
+    user_db = await User.find_one({"uid": user_id})
 
     if not user_db:
         raise HTTPException(
@@ -104,7 +136,7 @@ async def get_user_by_id(user_id: str):
             detail="User not found!",
         )
 
-    return user_db
+    return UserPublic.from_user(user_db)
 
 
 @user_router.put(
@@ -115,7 +147,7 @@ async def get_user_by_id(user_id: str):
     },
 )
 async def update_user(user_id: str, user_update: UserUpdate):
-    exist_user: User = await User.find_one({"id": "user_id"})
+    exist_user: User = await User.find_one({"uid": user_id})
 
     if not exist_user:
         raise HTTPException(
@@ -123,13 +155,13 @@ async def update_user(user_id: str, user_update: UserUpdate):
             detail="User not found!",
         )
 
-    exist_user.password = user_update.password
+    exist_user.password = security.get_password_hash(user_update.password)
     exist_user.full_name = user_update.full_name
 
     await exist_user.update()
     await exist_user.refresh()
 
-    return exist_user
+    return UserPublic.from_user(exist_user)
 
 
 @user_router.delete(
@@ -140,7 +172,7 @@ async def update_user(user_id: str, user_update: UserUpdate):
     },
 )
 async def delete_user(user_id: str):
-    exist_user = await User.find_one({"id": "user_id"})
+    exist_user = await User.find_one({"uid": user_id})
 
     if not exist_user:
         raise HTTPException(
@@ -151,3 +183,52 @@ async def delete_user(user_id: str):
     await exist_user.delete()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@user_router.get(
+    "/recommendations/",
+    response_model=list[UserPublic],
+)
+async def recomendations(current_user: User = Depends(get_current_user)):
+    recommendations = await User.find_many(
+        {
+            "$patterns": [
+                {
+                    "$exists": True,
+                    "$direction": RelationshipMatchDirection.OUTGOING,
+                    "$node": {
+                        "$id": 0,
+                        "$labels": ["User"],
+                    },
+                    "$relationship": {
+                        "$type": "FOLLOWING",
+                    },
+                },
+                {
+                    "$exists": True,
+                    "$direction": RelationshipMatchDirection.OUTGOING,
+                    "$node": {
+                        "$id": 1,
+                        "$labels": ["User"],
+                    },
+                    "$relationship": {
+                        "$type": "FOLLOWING",
+                    },
+                },
+                {
+                    "$exists": False,
+                    "$direction": RelationshipMatchDirection.OUTGOING,
+                    "$node": {
+                        "$id": 2,
+                        "$labels": ["User"],
+                        "uid": str(current_user.uid),
+                    },
+                    "$relationship": {
+                        "$type": "FOLLOWING",
+                    },
+                },
+            ]
+        }
+    )
+
+    return [UserPublic.from_user(user) for user in recommendations]

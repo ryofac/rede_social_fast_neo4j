@@ -3,7 +3,8 @@ uvicorn==0.30.6
 pydantic==2.9.1
 pydantic_settings==2.5.2
 httpx==0.27.2
-pyneo4j-ogm==0.6.0 
+pyneo4j-ogm==0.6.0
+email-validator==2.2.0 
 
 # # Conexão com o banco de dados
 # SQLAlchemy[asyncio]==2.0.34

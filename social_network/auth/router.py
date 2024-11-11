@@ -7,8 +7,10 @@ from jwt import InvalidTokenError
 from social_network.auth.auth_bearer import JWTBearer
 from social_network.auth.auth_handler import decode_jwt, sign_jwt
 from social_network.auth.schemas import TokenResponse, UserAuthSchema
+from social_network.security import get_password_hash
 
 # from social_network.database import get_session
+# from social_network.dependencies import get_user_repository
 from social_network.users.models import User
 from social_network.users.schemas import UserCreate, UserPublic
 
@@ -32,7 +34,7 @@ async def get_current_user(token: str = Depends(JWTBearer())) -> User:
     if not username:
         raise credentials_exception
 
-    user = await User.find_one({"username": username})
+    user = await User.find_one({"username": username}, auto_fetch_nodes=True)
     if not user:
         raise credentials_exception
     return user
@@ -60,10 +62,10 @@ async def register(user: UserCreate):
                 detail="User with the same email exists",
             )
 
-    db_user.password = user.password
+    db_user.password = get_password_hash(user.password)
     await db_user.create()
     await db_user.refresh()
-    return db_user
+    return UserPublic(**db_user.model_dump(exclude=["posts"]), posts=db_user.posts.nodes)
 
 
 @auth_router.post(

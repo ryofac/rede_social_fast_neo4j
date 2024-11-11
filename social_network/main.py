@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from social_network.auth.router import auth_router
 from social_network.dependencies import init_neo4j
 from social_network.users.router import user_router
+from social_network.posts.router import post_router
 
 app = FastAPI(
     title="Rubyan",
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(post_router)
 # app.include_router(debit_router)
 # app.include_router(category_router)
 

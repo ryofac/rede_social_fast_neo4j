@@ -1,14 +1,13 @@
-# from sqlalchemy import select
+# from pyneo4j_ogm.queries.query_builder import QueryBuilder
 
 # from social_network.users.models import User
 # from social_network.users.schemas import UserFilterSchema
 
 
 # def filter_user(filter_parameters: UserFilterSchema):
-#     final_query = select(User)
-
+#     query = QueryBuilder().
 #     if filter_parameters.dt_created_from:
-#         final_query = final_query.filter(User.created_at > filter_parameters.dt_created_from)
+#        query.
 
 #     if filter_parameters.dt_created_to:
 #         final_query = final_query.filter(User.created_at <= filter_parameters.dt_created_to)

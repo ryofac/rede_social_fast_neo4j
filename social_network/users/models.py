@@ -1,10 +1,16 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import Field
 from pyneo4j_ogm import NodeModel, RelationshipModel, RelationshipProperty, RelationshipPropertyCardinality, RelationshipPropertyDirection, WithOptions
 
 from social_network import security
+from social_network.posts.models import Owns, Post
+
+if TYPE_CHECKING:
+    pass
+    # from social_network.posts.models import Owns, Post
 
 
 class User(NodeModel):
@@ -19,32 +25,26 @@ class User(NodeModel):
     def verify_password(self, plain_password: str):
         return security.verify_password(plain_password, self.password)
 
-    # following: RelationshipProperty["User", "Following"] = RelationshipProperty(
-    #     target_model="User",
-    #     relationship_model="Following",
-    #     direction=RelationshipPropertyDirection.OUTGOING,
-    #     cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
-    #     allow_multiple=True,
-    # )
+    def update(self):
+        self.updated_at = datetime.now()
+        return super().update()
+
+    following: RelationshipProperty["User", "Following"] = RelationshipProperty(
+        target_model="User",
+        relationship_model="Following",
+        direction=RelationshipPropertyDirection.OUTGOING,
+        cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
+        allow_multiple=True,
+    )
+
+    posts: RelationshipProperty["Post", "Owns"] = RelationshipProperty(
+        target_model="Post",
+        relationship_model="Owns",
+        direction=RelationshipPropertyDirection.OUTGOING,
+        cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
+        allow_multiple=False,
+    )
 
 
-# class Following(RelationshipModel):
-#     pass
-
-
-class Post(NodeModel):
-    content: WithOptions(str)
-    created_at: WithOptions(datetime)
-    updated_at: WithOptions(datetime)
-
-
-#     owner: RelationshipProperty["User", "Owns"] = RelationshipProperty(
-#         target_model="User",
-#         relationship_model="Owns",
-#         direction=RelationshipPropertyDirection.INCOMING,
-#         cardinality=RelationshipPropertyCardinality.ZERO_OR_MORE,
-#         allow_multiple=True,
-#     )
-
-# class Owns(RelationshipModel):
-#     pass
+class Following(RelationshipModel):
+    pass

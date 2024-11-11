@@ -1,11 +1,12 @@
 from datetime import datetime
+from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from social_network.core.schemas import OrmModel
-
-# from social_network.debit.schemas import DebitSchema
+from social_network.posts.models import Post
+from social_network.users.models import User
 
 
 class UserBase(OrmModel):
@@ -25,9 +26,21 @@ class UserPublic(OrmModel):
     username: str
     full_name: str
     email: str
-    # debits: list[DebitSchema]
+    posts: list[Post]
+    following: list["UserPublic"]
     created_at: datetime
     updated_at: datetime
+
+    @classmethod
+    def from_user(cls, user: User):
+        user_following = [UserPublic.from_user(user) for user in user.following.nodes]
+        return cls(
+            **user.model_dump(
+                exclude=["posts", "following"],
+            ),
+            posts=user.posts.nodes,
+            following=user_following,
+        )
 
 
 class UserList(OrmModel):

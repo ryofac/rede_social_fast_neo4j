@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 
-from social_network.auth.router import get_current_user
+from social_network.dependencies import get_current_user
 from social_network.posts.filters import filter_post
 from social_network.posts.models import Post
 from social_network.posts.schemas import PostBase, PostCreate, PostDetails, PostFilterSchema, PostList, PostUpdate
@@ -19,17 +19,12 @@ post_router = APIRouter(prefix="/posts", tags=["posts"])
 async def get_posts(
     content: str | None = Query(None, description="Busca por conteúdo exato"),
     content_i: str | None = Query(None, description="Busca por conteúdo parecido"),
-    # username: str | None = Query(None, description="Busca por username do usuário dono do post parecido"),
-    # owner_id: str | None = Query(None, description="Busca pelo id do usuário dono do post"),
     current_user: User = Depends(get_current_user),
 ):
     filters = filter_post(
         PostFilterSchema(
             content=content,
             content_i=content_i,
-            # username=username,
-            # owner_id=owner_id,
-            # owner_username=username,
         )
     )
 
@@ -39,8 +34,7 @@ async def get_posts(
     )
 
     for ind, post in enumerate(results):
-        user_nodes = await post.owner.find_connected_nodes()
-        results[ind] = await PostDetails.from_post(post, user_nodes[0])
+        results[ind] = await PostDetails.from_post(post, current_user)
 
     all_posts = PostList.model_validate({"posts": results})
     return all_posts

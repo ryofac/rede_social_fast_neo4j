@@ -17,29 +17,6 @@ from social_network.users.schemas import UserCreate, UserPublic
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-async def get_current_user(token: str = Depends(JWTBearer())) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        decoded_token = decode_jwt(token)
-        if not decoded_token:
-            return credentials_exception
-    except InvalidTokenError:
-        return credentials_exception
-
-    username = decoded_token.get("user_id", None)
-    if not username:
-        raise credentials_exception
-
-    user = await User.find_one({"username": username}, auto_fetch_nodes=True)
-    if not user:
-        raise credentials_exception
-    return user
-
-
 @auth_router.post(
     "/register",
     status_code=status.HTTP_200_OK,

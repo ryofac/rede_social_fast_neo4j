@@ -7,10 +7,11 @@ from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 # from sqlalchemy import select
 # from sqlalchemy.ext.asyncio import AsyncSession
 from social_network import security
-from social_network.auth.router import get_current_user
+from social_network.dependencies import get_current_user
 
 # from social_network.database import get_session
 # from social_network.users.filters import UserFilterSchema, filter_user
+from social_network.posts.schemas import PostDetails, PostList, UserMinimal
 from social_network.users.filters import filter_user
 from social_network.users.models import User
 from social_network.users.schemas import UserCreate, UserFilterSchema, UserList, UserPublic, UserUpdate
@@ -88,6 +89,7 @@ async def get_users(
     username_i: str | None = Query(None, description="Busca por username parecido"),
     limit: int = 100,
     offset: int = 0,
+    current_user: User = Depends(get_current_user),
 ):
     filter_parameters = filter_user(
         UserFilterSchema(
@@ -101,7 +103,7 @@ async def get_users(
     results = await User.find_many(filter_parameters, auto_fetch_nodes=True)
 
     for ind, user in enumerate(results):
-        results[ind] = await UserPublic.from_user(user)
+        results[ind] = UserMinimal(**user.model_dump())
 
     results = results[offset:limit] if offset < limit else []
     all_users = UserList.model_validate({"users": results})
@@ -124,7 +126,7 @@ async def me(current_user: User = Depends(get_current_user)):
     },
 )
 async def get_user_by_id(user_id: str):
-    user_db = await User.find_one({"uid": user_id})
+    user_db = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
 
     if not user_db:
         raise HTTPException(
@@ -228,3 +230,27 @@ async def recomendations(current_user: User = Depends(get_current_user)):
     )
 
     return [await UserPublic.from_user(user) for user in recommendations]
+
+
+@user_router.get(
+    "/{user_id}/posts/",
+    response_model=PostList,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "User not found"},
+    },
+)
+async def get_posts_from_user(user_id: str, current_user: User = Depends(get_current_user)):
+    user_db = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
+
+    if not user_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found!",
+        )
+
+    posts = user_db.posts.nodes
+
+    for ind, post in enumerate(posts):
+        posts[ind] = await PostDetails.from_post(post, current_user)
+
+    return PostList.model_validate({"posts": posts})

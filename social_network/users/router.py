@@ -11,8 +11,9 @@ from social_network.auth.router import get_current_user
 
 # from social_network.database import get_session
 # from social_network.users.filters import UserFilterSchema, filter_user
+from social_network.users.filters import filter_user
 from social_network.users.models import User
-from social_network.users.schemas import UserCreate, UserList, UserPublic, UserUpdate
+from social_network.users.schemas import UserCreate, UserFilterSchema, UserList, UserPublic, UserUpdate
 
 user_router = APIRouter(prefix="/users", tags=["users"])
 
@@ -81,8 +82,6 @@ async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_c
     response_model=UserList,
 )
 async def get_users(
-    dt_created_from: datetime | None = Query(None, description="Data de criação a partir de"),
-    dt_created_to: datetime | None = Query(None, description="Data de criação limite"),
     name: str | None = Query(None, description="Busca por nome exato"),
     name_i: str | None = Query(None, description="Busca por nome parecido"),
     username: str | None = Query(None, description="Busca por username exato"),
@@ -90,22 +89,21 @@ async def get_users(
     limit: int = 100,
     offset: int = 0,
 ):
-    # query = filter_user(
-    #     UserFilterSchema(
-    #         dt_created_from=dt_created_from,
-    #         dt_created_to=dt_created_to,
-    #         name_i=name_i,
-    #         name=name,
-    #         username=username,
-    #         username_i=username_i,
-    #     )
-    # )
+    filter_parameters = filter_user(
+        UserFilterSchema(
+            name_i=name_i,
+            name=name,
+            username=username,
+            username_i=username_i,
+        )
+    )
 
-    results = await User.find_many(auto_fetch_nodes=True)
+    results = await User.find_many(filter_parameters, auto_fetch_nodes=True)
 
     for ind, user in enumerate(results):
-        results[ind] = UserPublic.from_user(user)
+        results[ind] = await UserPublic.from_user(user)
 
+    results = results[offset:limit] if offset < limit else []
     all_users = UserList.model_validate({"users": results})
     return all_users
 
@@ -115,7 +113,7 @@ async def get_users(
     response_model=UserPublic,
 )
 async def me(current_user: User = Depends(get_current_user)):
-    return UserPublic.from_user(current_user)
+    return await UserPublic.from_user(current_user)
 
 
 @user_router.get(
@@ -134,7 +132,7 @@ async def get_user_by_id(user_id: str):
             detail="User not found!",
         )
 
-    return UserPublic.from_user(user_db)
+    return await UserPublic.from_user(user_db)
 
 
 @user_router.put(
@@ -159,7 +157,7 @@ async def update_user(user_id: str, user_update: UserUpdate):
     await exist_user.update()
     await exist_user.refresh()
 
-    return UserPublic.from_user(exist_user)
+    return await UserPublic.from_user(exist_user)
 
 
 @user_router.delete(
@@ -229,4 +227,4 @@ async def recomendations(current_user: User = Depends(get_current_user)):
         }
     )
 
-    return [UserPublic.from_user(user) for user in recommendations]
+    return [await UserPublic.from_user(user) for user in recommendations]

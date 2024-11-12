@@ -4,24 +4,28 @@
 # from social_network.users.schemas import UserFilterSchema
 
 
-# def filter_user(filter_parameters: UserFilterSchema):
-#     query = QueryBuilder().
-#     if filter_parameters.dt_created_from:
-#        query.
+from social_network.users.schemas import UserFilterSchema
 
-#     if filter_parameters.dt_created_to:
-#         final_query = final_query.filter(User.created_at <= filter_parameters.dt_created_to)
 
-#     if filter_parameters.name:
-#         final_query = final_query.filter(User.full_name.contains(filter_parameters.name))
+def filter_user(filter_parameters: UserFilterSchema):
+    filters = {}
 
-#     if filter_parameters.name_i:
-#         final_query = final_query.filter(User.full_name.icontains(filter_parameters.name_i))
+    if filter_parameters.name:
+        filters["name"] = {"$eq": filter_parameters.name}
 
-#     if filter_parameters.username:
-#         final_query = final_query.filter(User.username == filter_parameters.username)
+    if filter_parameters.name_i:
+        if not filters.get("name"):
+            filters["name"] = {"$icontains": filter_parameters.name_i}
+        else:
+            filters["name"].update({"$icontains": filter_parameters.name_i})
 
-#     if filter_parameters.username_i:
-#         final_query = final_query.filter(User.username.icontains(filter_parameters.username_i))
+    if filter_parameters.username:
+        filters["username"] = {"$eq": filter_parameters.username}
 
-#     return final_query
+    if filter_parameters.username_i:
+        if not filters.get("username"):
+            filters["username"] = {"$icontains": filter_parameters.username_i}
+        else:
+            filters["username"].update({"$icontains": filter_parameters.username_i})
+
+    return filters

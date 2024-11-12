@@ -1,11 +1,12 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 
 from social_network.auth.router import get_current_user
+from social_network.posts.filters import filter_post
 from social_network.posts.models import Post
-from social_network.posts.schemas import PostBase, PostCreate, PostDetails, PostList, PostUpdate
+from social_network.posts.schemas import PostBase, PostCreate, PostDetails, PostFilterSchema, PostList, PostUpdate
 from social_network.users.models import User
 
 post_router = APIRouter(prefix="/posts", tags=["posts"])
@@ -15,22 +16,31 @@ post_router = APIRouter(prefix="/posts", tags=["posts"])
     "/feed",
     response_model=PostList,
 )
-async def get_posts(current_user: User = Depends(get_current_user)):
-    # query = filter_user(
-    #     UserFilterSchema(
-    #         dt_created_from=dt_created_from,
-    #         dt_created_to=dt_created_to,
-    #         name_i=name_i,
-    #         name=name,
-    #         username=username,
-    #         username_i=username_i,
-    #     )
-    # )
+async def get_posts(
+    content: str | None = Query(None, description="Busca por conteúdo exato"),
+    content_i: str | None = Query(None, description="Busca por conteúdo parecido"),
+    # username: str | None = Query(None, description="Busca por username do usuário dono do post parecido"),
+    # owner_id: str | None = Query(None, description="Busca pelo id do usuário dono do post"),
+    current_user: User = Depends(get_current_user),
+):
+    filters = filter_post(
+        PostFilterSchema(
+            content=content,
+            content_i=content_i,
+            # username=username,
+            # owner_id=owner_id,
+            # owner_username=username,
+        )
+    )
 
-    results = await Post.find_many(auto_fetch_nodes=True)
+    results = await Post.find_many(
+        filters,
+        auto_fetch_nodes=True,
+    )
 
     for ind, post in enumerate(results):
-        results[ind] = await PostDetails.from_post(post, current_user)
+        user_nodes = await post.owner.find_connected_nodes()
+        results[ind] = await PostDetails.from_post(post, user_nodes[0])
 
     all_posts = PostList.model_validate({"posts": results})
     return all_posts
@@ -136,6 +146,7 @@ async def delete_post(post_id: str, current_user: User = Depends(get_current_use
 @post_router.post(
     "/{post_id}/comment",
     status_code=status.HTTP_200_OK,
+    response_model=PostDetails,
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "Post not found"},
     },
@@ -158,8 +169,9 @@ async def comment_post(post_id: str, post: PostCreate, current_user: User = Depe
     await current_user.posts.connect(db_post)
     await db_post.linked_to.connect(to_be_commented_post)
     await db_post.refresh()
+    await db_post.owner.find_connected_nodes(auto_fetch_nodes=True)
 
-    return await PostDetails.from_post(to_be_commented_post, current_user)
+    return await PostDetails.from_post(db_post, current_user)
 
 
 @post_router.post(

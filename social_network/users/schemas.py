@@ -3,6 +3,7 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 
 from social_network.core.schemas import OrmModel
 from social_network.posts.models import Post
@@ -17,14 +18,110 @@ class PostDetailsWithoutOwner(OrmModel):
     created_at: datetime
     updated_at: datetime
 
-    linked_to: list["Self"] | None
+    comments: list["Self"] | None
 
     @classmethod
-    def from_post(cls, post: Post):
-        linked_to = post.linked_to.nodes
+    async def from_post(cls, post: Post):
+        likes_amount = await post.count(
+            {
+                "uid": str(post.uid),
+                "$patterns": [
+                    {
+                        "$relationship": {
+                            "$type": "LIKED",
+                        },
+                        "$exists": True,
+                        "$direction": RelationshipMatchDirection.INCOMING,
+                    }
+                ],
+            },
+        )
+        dislikes_amount = await post.count(
+            {
+                "uid": str(post.uid),
+                "$patterns": [
+                    {
+                        "$relationship": {
+                            "$type": "DISLIKED",
+                        },
+                        "$exists": True,
+                        "$direction": RelationshipMatchDirection.INCOMING,
+                    }
+                ],
+            }
+        )
+
+        # Função recursiva para carregar todos os comentários em profundidade
+        async def load_comments_recursive(comment_post):
+            # Conta likes e dislikes de cada comentário
+            likes = await comment_post.count(
+                {
+                    "uid": str(comment_post.uid),
+                    "$patterns": [
+                        {
+                            "$relationship": {
+                                "$type": "LIKED",
+                            },
+                            "$exists": True,
+                            "$direction": RelationshipMatchDirection.INCOMING,
+                        }
+                    ],
+                },
+            )
+            dislikes = await comment_post.count(
+                {
+                    "uid": str(comment_post.uid),
+                    "$patterns": [
+                        {
+                            "$relationship": {
+                                "$type": "DISLIKED",
+                            },
+                            "$exists": True,
+                            "$direction": RelationshipMatchDirection.INCOMING,
+                        }
+                    ],
+                }
+            )
+
+            # Carrega o proprietário de cada comentário
+            # Cria a instância de comentário com todos os campos obrigatórios preenchidos
+            comment_details = cls(
+                **comment_post.model_dump(exclude=["comments", "likes", "deslikes"]),
+                likes=likes,
+                dislikes=dislikes,
+                liked_by_me=False,  # Se precisar, pode adaptar para verificar likes por usuário
+                disliked_by_me=False,  # idem acima
+                comments=[],
+            )
+
+            # Busca os subcomentários
+            sub_comments = await comment_post.find_connected_nodes(
+                {
+                    "$node": {"$labels": ["Post"]},
+                    "$direction": RelationshipMatchDirection.INCOMING,
+                    "$relationships": [{"$type": "LINKED_TO"}],
+                }
+            )
+
+            # Formata e adiciona os subcomentários
+            comment_details.comments = [await load_comments_recursive(sub_comment) for sub_comment in sub_comments]
+            return comment_details
+
+        # Carrega e formata todos os comentários de forma recursiva
+        top_level_comments = await post.find_connected_nodes(
+            {
+                "$node": {"$labels": ["Post"]},
+                "$direction": RelationshipMatchDirection.INCOMING,
+                "$relationships": [{"$type": "LINKED_TO"}],
+            }
+        )
+        formatted_comments = [await load_comments_recursive(comment) for comment in top_level_comments]
+
         return cls(
-            **post.model_dump(exclude=["linked_to"]),
-            linked_to=linked_to,
+            **post.model_dump(exclude=["comments"]),
+            comments=formatted_comments,
+            likes=likes_amount,
+            dislikes=dislikes_amount,
         )
 
 
@@ -53,9 +150,9 @@ class UserPublic(OrmModel):
     updated_at: datetime
 
     @classmethod
-    def from_user(cls, user: User):
+    async def from_user(cls, user: User):
         user_following = [UserPublic.from_user(user) for user in user.following.nodes]
-        posts = [PostDetailsWithoutOwner.from_post(post) for post in user.posts.nodes]
+        posts = [await PostDetailsWithoutOwner.from_post(post) for post in user.posts.nodes]
         return cls(
             **user.model_dump(
                 exclude=["posts", "following"],
@@ -88,8 +185,6 @@ class UserUpdate(OrmModel):
 
 
 class UserFilterSchema(BaseModel):
-    dt_created_from: datetime | None
-    dt_created_to: datetime | None
     name: str | None
     name_i: str | None
     username: str | None

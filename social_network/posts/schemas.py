@@ -104,6 +104,7 @@ class PostDetails(OrmModel):
                     "$node": {"$labels": ["Post"]},
                     "$direction": RelationshipMatchDirection.INCOMING,
                     "$relationships": [{"$type": "LINKED_TO"}],
+                    "$maxHops": 1,
                 }
             )
 
@@ -123,6 +124,7 @@ class PostDetails(OrmModel):
                 "$node": {"$labels": ["Post"]},
                 "$direction": RelationshipMatchDirection.INCOMING,
                 "$relationships": [{"$type": "LINKED_TO"}],
+                "$maxHops": 1,
             }
         )
 

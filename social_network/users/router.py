@@ -61,10 +61,16 @@ async def create_user(user: UserCreate):
         status.HTTP_400_BAD_REQUEST: {
             "description": "User is currently following the user",
         },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "You cannot follow yourself",
+        },
     },
 )
 async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_current_user)):
     user_to_follow = await User.find_one({"uid": user_to_follow_id})
+
+    if user_to_follow_id == str(current_user.uid):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot follow yourself")
 
     if not user_to_follow:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User to follow does not exist.")

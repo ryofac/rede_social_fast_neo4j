@@ -26,6 +26,8 @@ async def register(user: UserCreate):
     db_user: User = User(**user.model_dump(exclude="password"))
 
     existent_user = await User.find_one({"username": user.username, "email": user.email})
+    if not existent_user:
+        existent_user = await User.find_one({"email": user.email})
 
     if existent_user:
         if existent_user.username == user.username:
@@ -42,7 +44,7 @@ async def register(user: UserCreate):
     db_user.password = get_password_hash(user.password)
     await db_user.create()
     await db_user.refresh()
-    return UserPublic(**db_user.model_dump(exclude=["posts"]), posts=db_user.posts.nodes)
+    return await UserPublic.from_user(db_user)
 
 
 @auth_router.post(

@@ -25,6 +25,8 @@ class PostDetailsWithoutOwner(OrmModel):
     content: str
     created_at: datetime
     updated_at: datetime
+    likes: int
+    dislikes: int
     liked_by_me: bool = False
     disliked_by_me: bool = False
     comments: list["Self"] | None
@@ -63,8 +65,8 @@ class PostDetailsWithoutOwner(OrmModel):
                 **comment_post.model_dump(exclude=["comments", "owner"]),
                 likes=likes,
                 dislikes=dislikes,
-                liked_by_me=False,
-                disliked_by_me=False,
+                liked_by_me=bool(await current_user.likes.find_connected_nodes({"uid": str(comment_post.uid)})),
+                disliked_by_me=bool(await current_user.dilikes.find_connected_nodes({"uid": str(comment_post.uid)})),
                 comments=[await load_comments_recursive(sub_comment) for sub_comment in sub_comments],
             )
 
@@ -107,20 +109,33 @@ class UserPublic(OrmModel):
     bio: str | None = Field(default=None)
     avatar_link: str | None = Field(default=None)
     posts: list[PostDetailsWithoutOwner]
-    following: list["UserPublic"]
+    following: list["UserMinimal"]
+    followed_by: list["UserMinimal"]
     created_at: datetime
     updated_at: datetime
 
     @classmethod
     async def from_user(cls, user: User):
-        user_following = [UserPublic.from_user(user) for user in user.following.nodes]
+        user_following = [UserMinimal(**user.model_dump()) for user in user.following.nodes]
+
+        users_followed = await user.find_connected_nodes(
+            {
+                "$node": {"$labels": ["User"]},
+                "$direction": RelationshipMatchDirection.INCOMING,
+                "$relationships": [{"$type": "FOLLOWS"}],
+                "$maxHops": 1,
+            },
+        )
+
+        users_followed = [UserMinimal(**user.model_dump()) for user in users_followed]
         posts = [await PostDetailsWithoutOwner.from_post(post, user) for post in user.posts.nodes]
         return cls(
             **user.model_dump(
-                exclude=["posts", "following"],
+                exclude=["posts", "following", "followed_by"],
             ),
             posts=posts,
             following=user_following,
+            followed_by=users_followed,
         )
 
 

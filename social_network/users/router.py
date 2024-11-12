@@ -125,14 +125,14 @@ async def me(current_user: User = Depends(get_current_user)):
 
 
 @user_router.get(
-    "/{user_id}",
+    "/{username}",
     response_model=UserPublic,
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "User not found"},
     },
 )
-async def get_user_by_id(user_id: str):
-    user_db = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
+async def get_user_by_username(username: str):
+    user_db = await User.find_one({"username": username}, auto_fetch_nodes=True)
 
     if not user_db:
         raise HTTPException(

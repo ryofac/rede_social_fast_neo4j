@@ -1,7 +1,9 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 
 from social_network.dependencies import get_current_user
 from social_network.posts.filters import filter_post
@@ -131,6 +133,18 @@ async def delete_post(post_id: str, current_user: User = Depends(get_current_use
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found!",
         )
+
+    comments = await exist_post.find_connected_nodes(
+        {
+            "$node": {"$labels": ["Post"]},
+            "$direction": RelationshipMatchDirection.INCOMING,
+            "$relationships": [{"$type": "LINKED_TO"}],
+        },
+        auto_fetch_nodes=True,
+    )
+
+    for post in comments:
+        await post.delete()
 
     await exist_post.delete()
 

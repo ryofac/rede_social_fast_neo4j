@@ -110,7 +110,7 @@ async def unfollow_user(user_to_unfollow_id: str, current_user: User = Depends(g
     if not user_to_unfollow:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User to unfollow does not exist.")
 
-    is_following = len(await current_user.following.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_unfollow_id})) > 0
+    is_following = len(await current_user.following.find_connected_nodes({"uid": user_to_unfollow_id})) > 0
 
     if not is_following:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are not following this user")

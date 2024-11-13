@@ -44,7 +44,7 @@ async def register(user: UserCreate):
     db_user.password = get_password_hash(user.password)
     await db_user.create()
     await db_user.refresh()
-    return await UserPublic.from_user(db_user)
+    return await UserPublic.from_user(db_user, db_user)
 
 
 @auth_router.post(

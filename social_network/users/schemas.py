@@ -119,7 +119,8 @@ class UserPublic(OrmModel):
         if not current_user:
             current_user = user
 
-        user_following = [UserMinimal(**user.model_dump()) for user in user.following.nodes]
+        users_following_raw = await user.following.find_connected_nodes({"$maxHops": 1})
+        user_following = [UserMinimal(**user.model_dump()) for user in users_following_raw]
 
         users_followed = await user.find_connected_nodes(
             {
@@ -132,7 +133,7 @@ class UserPublic(OrmModel):
 
         users_followed = [UserMinimal(**user.model_dump()) for user in users_followed]
 
-        posts_raw = await user.posts.find_connected_nodes()
+        posts_raw = await user.posts.find_connected_nodes({"$maxHops": 1})
         posts = [await PostDetailsWithoutOwner.from_post(post, current_user) for post in posts_raw]
         return cls(
             **user.model_dump(

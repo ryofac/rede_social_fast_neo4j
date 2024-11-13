@@ -55,7 +55,8 @@ async def create_user(user: UserCreate):
 
 @user_router.post(
     "/follow/{user_to_follow_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
+    response_model=UserPublic,
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "User to follow does not exist."},
         status.HTTP_400_BAD_REQUEST: {
@@ -81,7 +82,43 @@ async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_c
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are already following this user")
 
     await current_user.following.connect(user_to_follow)
-    return UserPublic.from_user(current_user, current_user)
+    await current_user.refresh()
+
+    return await UserPublic.from_user(current_user, current_user)
+
+
+@user_router.post(
+    "/unfollow/{user_to_unfollow_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=UserPublic,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "User to follow does not exist."},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "User is not following the user",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "You cannot unfollow yourself",
+        },
+    },
+)
+async def unfollow_user(user_to_unfollow_id: str, current_user: User = Depends(get_current_user)):
+    user_to_unfollow = await User.find_one({"uid": user_to_unfollow_id})
+
+    if user_to_unfollow_id == str(current_user.uid):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot unfollow yourself")
+
+    if not user_to_unfollow:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User to unfollow does not exist.")
+
+    is_following = len(await current_user.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_unfollow_id})) > 0
+
+    if not is_following:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are not following this user")
+
+    await current_user.following.disconnect(user_to_unfollow)
+    await current_user.refresh()
+
+    return await UserPublic.from_user(current_user, current_user)
 
 
 @user_router.get(

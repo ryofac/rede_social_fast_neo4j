@@ -76,7 +76,7 @@ async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_c
     if not user_to_follow:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User to follow does not exist.")
 
-    is_already_following = len(await current_user.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_follow_id, "$maxHops": 1})) > 0
+    is_already_following = len(await current_user.following.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_follow_id, "$maxHops": 1})) > 0
 
     if is_already_following:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are already following this user")
@@ -110,7 +110,7 @@ async def unfollow_user(user_to_unfollow_id: str, current_user: User = Depends(g
     if not user_to_unfollow:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User to unfollow does not exist.")
 
-    is_following = len(await current_user.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_unfollow_id, "$maxHops": 1})) > 0
+    is_following = len(await current_user.following.find_connected_nodes({"$node": {"$labels": "User"}, "uid": user_to_unfollow_id, "$maxHops": 1})) > 0
 
     if not is_following:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are not following this user")

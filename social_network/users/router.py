@@ -81,7 +81,7 @@ async def follow_user(user_to_follow_id: str, current_user: User = Depends(get_c
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You are already following this user")
 
     await current_user.following.connect(user_to_follow)
-    return current_user
+    return UserPublic.from_user(current_user, current_user)
 
 
 @user_router.get(
@@ -121,7 +121,7 @@ async def get_users(
     response_model=UserPublic,
 )
 async def me(current_user: User = Depends(get_current_user)):
-    return await UserPublic.from_user(current_user)
+    return await UserPublic.from_user(current_user, current_user)
 
 
 @user_router.get(
@@ -131,7 +131,7 @@ async def me(current_user: User = Depends(get_current_user)):
         status.HTTP_404_NOT_FOUND: {"description": "User not found"},
     },
 )
-async def get_user_by_username(username: str):
+async def get_user_by_username(username: str, current_user: User = Depends(get_current_user)):
     user_db = await User.find_one({"username": username}, auto_fetch_nodes=True)
 
     if not user_db:
@@ -140,7 +140,7 @@ async def get_user_by_username(username: str):
             detail="User not found!",
         )
 
-    return await UserPublic.from_user(user_db)
+    return await UserPublic.from_user(user_db, current_user)
 
 
 @user_router.put(
@@ -150,7 +150,7 @@ async def get_user_by_username(username: str):
         status.HTTP_404_NOT_FOUND: {"description": "User not found"},
     },
 )
-async def update_user(user_id: str, user_update: UserUpdate):
+async def update_user(user_id: str, user_update: UserUpdate, current_user: User = Depends(get_current_user)):
     exist_user: User = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
 
     if not exist_user:
@@ -161,11 +161,13 @@ async def update_user(user_id: str, user_update: UserUpdate):
 
     exist_user.password = security.get_password_hash(user_update.password)
     exist_user.full_name = user_update.full_name
+    exist_user.bio = user_update.bio
+    exist_user.avatar_link = user_update.avatar_link
 
     await exist_user.update()
     await exist_user.refresh()
 
-    return await UserPublic.from_user(exist_user)
+    return await UserPublic.from_user(exist_user, current_user)
 
 
 @user_router.delete(
@@ -235,7 +237,7 @@ async def recomendations(current_user: User = Depends(get_current_user)):
         }
     )
 
-    return [await UserPublic.from_user(user) for user in recommendations]
+    return [await UserPublic.from_user(user, current_user) for user in recommendations]
 
 
 @user_router.get(

@@ -7,7 +7,7 @@ services:
       dockerfile: ./dockerfiles/local/Dockerfile
     container_name: finn_app
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       - db
       - neo4j

@@ -115,7 +115,10 @@ class UserPublic(OrmModel):
     updated_at: datetime
 
     @classmethod
-    async def from_user(cls, user: User):
+    async def from_user(cls, user: User, current_user: User):
+        if not current_user:
+            current_user = user
+
         user_following = [UserMinimal(**user.model_dump()) for user in user.following.nodes]
 
         users_followed = await user.find_connected_nodes(
@@ -128,7 +131,9 @@ class UserPublic(OrmModel):
         )
 
         users_followed = [UserMinimal(**user.model_dump()) for user in users_followed]
-        posts = [await PostDetailsWithoutOwner.from_post(post, user) for post in user.posts.nodes]
+
+        posts_raw = await user.posts.find_connected_nodes()
+        posts = [await PostDetailsWithoutOwner.from_post(post, current_user) for post in posts_raw]
         return cls(
             **user.model_dump(
                 exclude=["posts", "following", "followed_by"],
@@ -159,6 +164,8 @@ class UserUpdate(OrmModel):
 
     full_name: str
     password: str
+    avatar_link: str
+    bio: str
 
 
 class UserFilterSchema(BaseModel):

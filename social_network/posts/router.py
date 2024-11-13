@@ -169,9 +169,11 @@ async def comment_post(post_id: str, post: PostCreate, current_user: User = Depe
 
 
 @post_router.post(
-    "/{post_id}/dislike",
-    status_code=status.HTTP_204_NO_CONTENT,
+    "/{post_id}/toggle-dislike",
+    status_code=status.HTTP_200_OK,
+    response_model=PostDetails,
     responses={
+        status.HTTP_200_OK: {"description": "Post disliked"},
         status.HTTP_400_BAD_REQUEST: {"description": "Post already disliked!"},
     },
 )
@@ -183,7 +185,9 @@ async def dislike_post(post_id: str, current_user: User = Depends(get_current_us
 
     already_disliked = len(await current_user.dilikes.find_connected_nodes({"uid": post_id})) > 0
     if already_disliked:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Post already disliked!")
+        await current_user.dilikes.disconnect(post_db)
+        await post_db.refresh()
+        return await PostDetails.from_post(post_db, current_user)
 
     liked = len(await current_user.likes.find_connected_nodes({"uid": post_id}))
 
@@ -193,14 +197,17 @@ async def dislike_post(post_id: str, current_user: User = Depends(get_current_us
     await current_user.dilikes.connect(post_db)
     await current_user.refresh()
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    await post_db.refresh()
+    return await PostDetails.from_post(post_db, current_user)
 
 
 @post_router.post(
-    "/{post_id}/like",
-    status_code=status.HTTP_204_NO_CONTENT,
+    "/{post_id}/toggle-like",
+    status_code=status.HTTP_200_OK,
+    response_model=PostDetails,
     responses={
-        status.HTTP_400_BAD_REQUEST: {"description": "Post already disliked!"},
+        status.HTTP_200_OK: {"description": "Post liked"},
+        status.HTTP_404_NOT_FOUND: {"description": "Post not found"},
     },
 )
 async def like_post(post_id: str, current_user: User = Depends(get_current_user)):
@@ -210,8 +217,11 @@ async def like_post(post_id: str, current_user: User = Depends(get_current_user)
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
 
     already_liked = len(await current_user.likes.find_connected_nodes({"uid": post_id})) > 0
+
     if already_liked:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Post already liked!")
+        await current_user.likes.disconnect(post_db)
+        await post_db.refresh()
+        return await PostDetails.from_post(post_db, current_user)
 
     disliked = len(await current_user.dilikes.find_connected_nodes({"uid": post_id}))
 
@@ -220,5 +230,6 @@ async def like_post(post_id: str, current_user: User = Depends(get_current_user)
 
     await current_user.likes.connect(post_db)
     await current_user.refresh()
+    await post_db.refresh()
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return await PostDetails.from_post(post_db, current_user)

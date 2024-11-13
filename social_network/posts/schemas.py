@@ -77,7 +77,7 @@ class PostDetails(OrmModel):
     @classmethod
     async def from_post(cls, post: Post, current_user: User):
         # Carrega dados principais do post
-        owner = await UserPublic.from_user((await post.owner.find_connected_nodes())[0])
+        owner = await UserPublic.from_user((await post.owner.find_connected_nodes())[0], current_user)
 
         async def count_reactions(node, reaction_type):
             return await node.count(
@@ -94,7 +94,7 @@ class PostDetails(OrmModel):
             )
 
         async def load_comments_recursive(comment_post):
-            comment_owner = await UserPublic.from_user((await comment_post.owner.find_connected_nodes())[0])
+            comment_owner = await UserPublic.from_user((await comment_post.owner.find_connected_nodes())[0], current_user)
             likes = await count_reactions(comment_post, "LIKED")
             dislikes = await count_reactions(comment_post, "DISLIKED")
 

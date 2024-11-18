@@ -4,24 +4,31 @@ services:
   web:
     build:
       context: .
-      dockerfile: ./dockerfiles/deploy/Dockerfile
-    container_name: finn_app
+      dockerfile: ./dockerfiles/local/Dockerfile
+    container_name: fast_neo
     ports:
       - "8000:8000"
     depends_on:
-      - db
-
-  db:
-    image: postgres:latest
-    container_name: postgres_db
+      - neo4j
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - .:/app
+
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j_db
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO_PASSWORD}  # Define o usuário e senha do Neo4j
+    ports:
+      - "7474:7474"  # Porta HTTP para acesso ao Browser do Neo4j
+      - "7687:7687"  # Porta Bolt (usada por aplicações como FastAPI)
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
 
 volumes:
   postgres_data:
+  neo4j_data:
+  neo4j_logs:

@@ -13,7 +13,6 @@ app = FastAPI(
     dependencies=[Depends(init_neo4j)],
 )
 
-
 origins = [
     "*",
 ]

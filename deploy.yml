@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  nginx:
+      image: nginx:latest
+      container_name: nginx
+      ports:
+        - "80:80"
+      depends_on:
+        - web
+      volumes:
+        - ./dockerfiles/deploy/ngnix/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      environment:
+        - NGINX_HOST=localhost
+        - NGINX_PORT=80
   web:
     build:
       context: .
@@ -28,6 +40,7 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
 
+  
 volumes:
   postgres_data:
   neo4j_data:

@@ -14,7 +14,7 @@ from social_network.dependencies import get_current_user
 from social_network.posts.schemas import PostDetails, PostList, UserMinimal
 from social_network.users.filters import filter_user
 from social_network.users.models import User
-from social_network.users.schemas import UserCreate, UserFilterSchema, UserList, UserPublic, UserUpdate
+from social_network.users.schemas import UserCreate, UserFilterSchema, UserList, UserPublic, UserUpdate, UserUpdatePartial
 
 user_router = APIRouter(prefix="/users", tags=["users"])
 
@@ -180,6 +180,33 @@ async def get_user_by_username(username: str, current_user: User = Depends(get_c
     return await UserPublic.from_user(user_db, current_user)
 
 
+# @user_router.put(
+#     "/{user_id}",
+#     response_model=UserPublic,
+#     responses={
+#         status.HTTP_404_NOT_FOUND: {"description": "User not found"},
+#     },
+# )
+# async def update_user(user_id: str, user_update: UserUpdate, current_user: User = Depends(get_current_user)):
+#     exist_user: User = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
+
+#     if not exist_user:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="User not found!",
+#         )
+
+#     exist_user.password = security.get_password_hash(user_update.password)
+#     exist_user.full_name = user_update.full_name
+#     exist_user.bio = user_update.bio
+#     exist_user.avatar_link = user_update.avatar_link
+
+#     await exist_user.update()
+#     await exist_user.refresh()
+
+#     return await UserPublic.from_user(exist_user, current_user)
+
+
 @user_router.put(
     "/{user_id}",
     response_model=UserPublic,
@@ -187,7 +214,7 @@ async def get_user_by_username(username: str, current_user: User = Depends(get_c
         status.HTTP_404_NOT_FOUND: {"description": "User not found"},
     },
 )
-async def update_user(user_id: str, user_update: UserUpdate, current_user: User = Depends(get_current_user)):
+async def update_partial_user(user_id: str, user_update: UserUpdatePartial, current_user: User = Depends(get_current_user)):
     exist_user: User = await User.find_one({"uid": user_id}, auto_fetch_nodes=True)
 
     if not exist_user:
@@ -196,10 +223,17 @@ async def update_user(user_id: str, user_update: UserUpdate, current_user: User 
             detail="User not found!",
         )
 
-    exist_user.password = security.get_password_hash(user_update.password)
-    exist_user.full_name = user_update.full_name
-    exist_user.bio = user_update.bio
-    exist_user.avatar_link = user_update.avatar_link
+    if user_update.password:
+        exist_user.password = security.get_password_hash(user_update.password)
+
+    if user_update.full_name:
+        exist_user.full_name = user_update.full_name
+
+    if user_update.bio:
+        exist_user.bio = user_update.bio
+
+    if user_update.avatar_link:
+        exist_user.avatar_link = user_update.avatar_link
 
     await exist_user.update()
     await exist_user.refresh()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Optional, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -167,6 +167,15 @@ class UserUpdate(OrmModel):
     password: str
     avatar_link: str
     bio: str
+
+
+class UserUpdatePartial(OrmModel):
+    """Modelo usado na atualização de dados do usuário"""
+
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+    avatar_link: Optional[str] = None
+    bio: Optional[str] = None
 
 
 class UserFilterSchema(BaseModel):

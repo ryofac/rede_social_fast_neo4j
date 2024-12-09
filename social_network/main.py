@@ -3,14 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from social_network.auth.router import auth_router
-from social_network.dependencies import init_neo4j
+from social_network.dependencies import lifespan
 from social_network.posts.router import post_router
 from social_network.users.router import user_router
 
 app = FastAPI(
     title="Rubyan",
     description="Sua rede social preferida de cara nova (ou não)",
-    on_startup=[init_neo4j],
+    lifespan=lifespan,
 )
 
 origins = [

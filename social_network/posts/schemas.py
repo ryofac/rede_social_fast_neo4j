@@ -67,7 +67,7 @@ class PostDetails(OrmModel):
 
     uid: UUID
     content: str
-    owner: UserMinimal
+    owner: UserMinimal | None
     created_at: datetime
     updated_at: datetime
     likes: int
@@ -79,7 +79,8 @@ class PostDetails(OrmModel):
     @classmethod
     async def from_post(cls, post: Post, current_user: User):
         # Carrega dados principais do post
-        owner = await UserPublic.from_user((await post.owner.find_connected_nodes())[0], current_user)
+        owners_raw = await post.owner.find_connected_nodes()
+        owner = await UserPublic.from_user(owners_raw[0] if owners_raw else None, current_user)
 
         async def count_reactions(node, reaction_type):
             return await node.count(
@@ -96,7 +97,8 @@ class PostDetails(OrmModel):
             )
 
         async def load_comments_recursive(comment_post):
-            comment_owner = await UserPublic.from_user((await comment_post.owner.find_connected_nodes())[0], current_user)
+            owners_raw = await post.owner.find_connected_nodes()
+            comment_owner = await UserPublic.from_user(owners_raw[0] if owners_raw else None, current_user)
             likes = await count_reactions(comment_post, "LIKED")
             dislikes = await count_reactions(comment_post, "DISLIKED")
 

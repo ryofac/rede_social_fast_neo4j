@@ -10,7 +10,7 @@ from social_network.users.router import user_router
 app = FastAPI(
     title="Rubyan",
     description="Sua rede social preferida de cara nova (ou não)",
-    dependencies=[Depends(init_neo4j)],
+    on_startup=[init_neo4j],
 )
 
 origins = [

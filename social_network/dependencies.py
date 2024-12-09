@@ -1,5 +1,10 @@
+import asyncio
+from venv import logger
 from fastapi import Depends, HTTPException, status
 from jwt import InvalidTokenError
+import neo4j
+import neo4j.exceptions
+import neo4j.warnings
 from pyneo4j_ogm import Pyneo4jClient
 
 from social_network.auth.auth_bearer import JWTBearer
@@ -31,9 +36,16 @@ async def get_current_user(token: str = Depends(JWTBearer())) -> User:
         raise credentials_exception
     return user
 
+async def try_to_connect_neo4j():
+    client = Pyneo4jClient()
+    while not client.is_connected:
+        try:
+            await client.connect(uri=settings.neo4j_url, auth=("neo4j", settings.NEO_PASSWORD))
+            await client.register_models([User, Post, Owns, Comments, Following, LinkedTo, Liked, Disliked])
+        except neo4j.exceptions.ServiceUnavailable:
+            logger.info("❌ Servidor Neo4j momentaneamente indisponível, retentando conexão...")
+            await asyncio.sleep(1)
 
 async def init_neo4j():
-    client = Pyneo4jClient()
-
-    await client.connect(uri=settings.neo4j_url, auth=("neo4j", settings.NEO_PASSWORD))
-    await client.register_models([User, Post, Owns, Comments, Following, LinkedTo, Liked, Disliked])
+    await try_to_connect_neo4j()
+   

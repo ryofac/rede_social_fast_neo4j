@@ -40,11 +40,11 @@ async def get_current_user(token: str = Depends(JWTBearer())) -> User:
         raise credentials_exception
     return user
 
-async def try_to_connect_neo4j(client):
+async def try_to_connect_neo4j(client: Pyneo4jClient):
     error_ocurred = False
     while not client.is_connected or error_ocurred:
         try:
-            await client.connect(uri=settings.neo4j_url, auth=("neo4j", settings.NEO_PASSWORD))
+            client = await client.connect(uri=settings.neo4j_url, auth=("neo4j", settings.NEO_PASSWORD))
             await client.register_models([User, Post, Owns, Comments, Following, LinkedTo, Liked, Disliked])
             print(f"✅ Servidor Neo4j {settings.neo4j_url} conectado com sucesso")
             error_ocurred = False

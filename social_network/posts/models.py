@@ -5,15 +5,14 @@ from uuid import UUID, uuid4
 from pydantic import Field
 from pyneo4j_ogm import NodeModel, RelationshipModel, RelationshipProperty, RelationshipPropertyCardinality, RelationshipPropertyDirection, WithOptions
 
+from social_network.core.models import DatedModelMixin
+
 # from social_network.users.models import User
 
 
-class Post(NodeModel):
+class Post(NodeModel, DatedModelMixin):
     uid: UUID = Field(unique=True, default_factory=uuid4)
     content: str
-    created_at: datetime = Field(init=False, default_factory=datetime.now)
-    updated_at: datetime = Field(init=False, default_factory=datetime.now)
-
     owner: RelationshipProperty[ForwardRef("User"), ForwardRef("Owns")] = RelationshipProperty(
         target_model="User",
         relationship_model="Owns",

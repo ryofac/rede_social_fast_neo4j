@@ -3,7 +3,9 @@ from typing import Self
 from uuid import UUID
 
 from fastapi import Depends
-from pydantic import BaseModel
+import neo4j
+import neo4j.time
+from pydantic import BaseModel, Field
 from pyneo4j_ogm.queries.query_builder import RelationshipMatchDirection
 
 from social_network.core.schemas import OrmModel

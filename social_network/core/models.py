@@ -8,13 +8,18 @@
 #     id: WithOptions(UUID, unique=True) = Field(init=False, primary_key=True)
 
  
-# class DatedModelMixin:
-#     created_at: Mapped[datetime] = mapped_column(
-#         init=False,
-#         server_default=func.now(),
-#     )
-#     updated_at: Mapped[datetime] = mapped_column(
-#         init=False,
-#         server_default=func.now(),
-#         onupdate=func.now(),
-#     )
+from datetime import datetime
+
+from pydantic import Field, field_validator, validator
+
+
+class DatedModelMixin:
+    @field_validator("created_at", "updated_at", mode="before")
+    def convert_datetime(cls, value):
+        if hasattr(value, "to_native"):  
+            return value.to_native()          
+        return value
+    
+    created_at: datetime = Field(init=False, default_factory=datetime.now)
+    updated_at: datetime = Field(init=False, default_factory=datetime.now)
+    
